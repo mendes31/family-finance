@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Manter .htaccess no dist (é necessário para Apache)
+!dist/.htaccess
+
+# Arquivos de build copiados para raiz (servidos pelo Apache)
+/assets/
+/favicon.ico
+/robots.txt
+/placeholder.svg
+# Manter index.html original na raiz (é necessário para Vite)
+# Manter .htaccess na raiz (é necessário para Apache)
+!.htaccess
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+# Nota: .env.example pode ser commitado (é apenas template)

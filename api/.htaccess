@@ -1,0 +1,18 @@
+# Configuração para API PHP
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /family_finance/api/
+  
+  # Permitir acesso direto aos arquivos PHP
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+</IfModule>
+
+# Headers CORS
+<IfModule mod_headers.c>
+  Header set Access-Control-Allow-Origin "http://localhost"
+  Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+  Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+  Header set Access-Control-Allow-Credentials "true"
+</IfModule>
+

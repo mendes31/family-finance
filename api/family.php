@@ -213,8 +213,17 @@ function handleInviteMember() {
     $data = get_request_body();
     $email = trim($data['email'] ?? '');
     $full_name = trim($data['full_name'] ?? '');
+    $whatsapp_number = trim($data['whatsapp_number'] ?? '');
     $role = $data['role'] ?? 'user';
     $invitation_type = $data['invitation_type'] ?? 'pre_register';
+    
+    // Limpar número WhatsApp (apenas dígitos)
+    if (!empty($whatsapp_number)) {
+        $whatsapp_number = preg_replace('/[^0-9]/', '', $whatsapp_number);
+        if (strlen($whatsapp_number) < 10) {
+            $whatsapp_number = ''; // Invalidar se muito curto
+        }
+    }
     
     // Validações
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -324,6 +333,19 @@ function handleInviteMember() {
             // O convite foi criado, apenas o e-mail não foi enviado
         }
         
+        // Tentar enviar WhatsApp com convite (se número fornecido)
+        $whatsapp_result = null;
+        if (!empty($whatsapp_number)) {
+            $whatsapp_result = send_invitation_whatsapp($pdo, $family_id, $whatsapp_number, $full_name, $token, $generated_password, $invitation_type);
+            
+            // Log do resultado do envio
+            if ($whatsapp_result['success']) {
+                error_log("WhatsApp de convite enviado com sucesso para: $whatsapp_number");
+            } else {
+                error_log("Erro ao enviar WhatsApp de convite para $whatsapp_number: " . $whatsapp_result['message']);
+            }
+        }
+        
         // Preparar resposta
         $response = [
             'invitation' => [
@@ -342,6 +364,24 @@ function handleInviteMember() {
             $response['email_sent'] = false;
             $response['email_error'] = $email_result['message'];
             $response['message'] = 'Convite criado, mas o e-mail não pôde ser enviado. Verifique as configurações SMTP.';
+        }
+        
+        // Adicionar informações sobre o envio do WhatsApp
+        if ($whatsapp_result) {
+            if ($whatsapp_result['success']) {
+                $response['whatsapp_sent'] = true;
+                if ($response['email_sent']) {
+                    $response['message'] = 'Convite criado e enviado por e-mail e WhatsApp com sucesso';
+                } else {
+                    $response['message'] = 'Convite criado e enviado via WhatsApp com sucesso';
+                }
+            } else {
+                $response['whatsapp_sent'] = false;
+                $response['whatsapp_error'] = $whatsapp_result['message'];
+                if (!$response['email_sent']) {
+                    $response['message'] = 'Convite criado, mas não foi possível enviar por e-mail nem WhatsApp. Verifique as configurações.';
+                }
+            }
         }
         
         // Em desenvolvimento, retornar senha e token (remover em produção)

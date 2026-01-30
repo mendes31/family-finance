@@ -31,11 +31,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useInviteMember } from '@/hooks/useFamily';
 import { toast } from 'sonner';
-import { Loader2, Mail, UserPlus, Shield, User } from 'lucide-react';
+import { Loader2, Mail, UserPlus, Shield, User, MessageSquare } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().email('E-mail inválido'),
   full_name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').optional().or(z.literal('')),
+  whatsapp_number: z.string().optional().refine((val) => !val || /^[0-9]{10,15}$/.test(val.replace(/[^0-9]/g, '')), {
+    message: 'Número WhatsApp inválido (apenas dígitos, 10-15 caracteres)',
+  }),
   role: z.enum(['user', 'admin'], {
     required_error: 'Selecione um perfil',
   }),
@@ -65,6 +68,7 @@ export function InviteMemberModal({ open, onOpenChange }: InviteMemberModalProps
     defaultValues: {
       email: '',
       full_name: '',
+      whatsapp_number: '',
       role: 'user',
       invitation_type: 'pre_register',
     },
@@ -80,20 +84,38 @@ export function InviteMemberModal({ open, onOpenChange }: InviteMemberModalProps
       const result = await inviteMember.mutateAsync({
         email: data.email,
         full_name: data.full_name || undefined,
+        whatsapp_number: data.whatsapp_number || undefined,
         role: data.role,
         invitation_type: data.invitation_type,
       });
 
-      // Verificar se o e-mail foi enviado
-      if (result.email_sent === false) {
-        const errorMsg = result.email_error || 'Verifique as configurações SMTP em Configurações > E-mail.';
-        toast.warning('Convite criado, mas o e-mail não foi enviado', {
-          description: errorMsg,
-          duration: 8000,
+      // Verificar resultados do envio
+      const emailSent = result.email_sent === true;
+      const whatsappSent = result.whatsapp_sent === true;
+      
+      if (emailSent && whatsappSent) {
+        toast.success('Convite criado e enviado com sucesso!', {
+          description: `E-mail enviado para ${data.email} e WhatsApp para ${data.whatsapp_number}`,
+        });
+      } else if (emailSent) {
+        toast.success('Convite criado e e-mail enviado com sucesso!', {
+          description: `E-mail enviado para ${data.email}` + (data.whatsapp_number ? `. WhatsApp: ${result.whatsapp_error || 'não enviado'}` : ''),
+        });
+      } else if (whatsappSent) {
+        toast.success('Convite criado e WhatsApp enviado com sucesso!', {
+          description: `WhatsApp enviado para ${data.whatsapp_number}. E-mail: ${result.email_error || 'não enviado'}`,
         });
       } else {
-        toast.success('Convite criado e e-mail enviado com sucesso!', {
-          description: 'O convite foi enviado para ' + data.email,
+        const errors = [];
+        if (!emailSent) {
+          errors.push(`E-mail: ${result.email_error || 'não enviado'}`);
+        }
+        if (data.whatsapp_number && !whatsappSent) {
+          errors.push(`WhatsApp: ${result.whatsapp_error || 'não enviado'}`);
+        }
+        toast.warning('Convite criado, mas não foi possível enviar', {
+          description: errors.join('. ') + '. Verifique as configurações em Configurações > E-mail e WhatsApp.',
+          duration: 10000,
         });
       }
       
@@ -204,6 +226,31 @@ export function InviteMemberModal({ open, onOpenChange }: InviteMemberModalProps
                     {watchInvitationType === 'pre_register'
                       ? 'Opcional. Pode ser preenchido depois.'
                       : 'Obrigatório para cadastro completo.'}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* WhatsApp (Opcional) */}
+            <FormField
+              control={form.control}
+              name="whatsapp_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>WhatsApp (Opcional)</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        {...field}
+                        placeholder="5599999999999"
+                        className="pl-10"
+                      />
+                    </div>
+                  </FormControl>
+                  <FormDescription>
+                    Número com DDI (sem espaços). O convite também será enviado via WhatsApp se informado.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

@@ -69,6 +69,7 @@ export function useFamilyMembers() {
 export interface InviteMemberInput {
   email: string;
   full_name?: string;
+  whatsapp_number?: string;
   role: 'user' | 'admin';
   invitation_type: 'pre_register' | 'full_register';
 }
@@ -82,11 +83,13 @@ export function useInviteMember() {
       if (!family) throw new Error('Você não pertence a uma família');
 
       const response = await familyApi.inviteMember(input);
-      // Retornar resposta completa para ter acesso a email_sent e email_error
+      // Retornar resposta completa para ter acesso a email_sent, email_error, whatsapp_sent e whatsapp_error
       return {
         invitation: response.invitation,
         email_sent: response.email_sent,
         email_error: response.email_error,
+        whatsapp_sent: response.whatsapp_sent,
+        whatsapp_error: response.whatsapp_error,
         message: response.message,
       };
     },

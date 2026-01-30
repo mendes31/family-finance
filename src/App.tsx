@@ -106,6 +106,14 @@ const App = () => (
               }
             />
             <Route
+              path="/settings/whatsapp"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/accept-invitation"
               element={<AcceptInvitation />}
             />

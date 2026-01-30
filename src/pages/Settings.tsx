@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Settings as SettingsIcon, Mail, User } from 'lucide-react';
+import { Settings as SettingsIcon, Mail, User, MessageSquare } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { cn } from '@/lib/utils';
 import EmailSettings from './EmailSettings';
+import WhatsAppSettings from './WhatsAppSettings';
 
 export default function Settings() {
   const location = useLocation();
@@ -12,7 +13,8 @@ export default function Settings() {
   // Verificar pathname (remover basename se presente)
   const pathname = location.pathname.replace('/family_finance', '') || location.pathname;
   const isEmailSettings = pathname === '/settings/email' || pathname.endsWith('/settings/email');
-  const isProfileSettings = pathname === '/settings' || pathname === '/settings/' || (pathname.startsWith('/settings') && !isEmailSettings);
+  const isWhatsAppSettings = pathname === '/settings/whatsapp' || pathname.endsWith('/settings/whatsapp');
+  const isProfileSettings = pathname === '/settings' || pathname === '/settings/' || (pathname.startsWith('/settings') && !isEmailSettings && !isWhatsAppSettings);
 
   return (
     <MainLayout>
@@ -58,11 +60,27 @@ export default function Settings() {
             E-mail
           </div>
         </Link>
+        <Link
+          to="/settings/whatsapp"
+          className={cn(
+            "px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px",
+            isWhatsAppSettings
+              ? "border-accent text-accent"
+              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            WhatsApp
+          </div>
+        </Link>
       </div>
 
       {/* Conteúdo baseado na rota */}
       {isEmailSettings ? (
         <EmailSettings />
+      ) : isWhatsAppSettings ? (
+        <WhatsAppSettings />
       ) : (
         <>
 

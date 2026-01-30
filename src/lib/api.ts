@@ -101,6 +101,7 @@ export const familyApi = {
   inviteMember: async (data: {
     email: string;
     full_name?: string;
+    whatsapp_number?: string;
     role: 'user' | 'admin';
     invitation_type: 'pre_register' | 'full_register';
   }) => {
@@ -368,6 +369,46 @@ export const goalsApi = {
 
 /**
  * Cartões de Crédito
+ */
+/**
+ * WhatsApp Settings
+ */
+export const whatsappApi = {
+  get: async () => {
+    return apiRequest<{ settings: any }>('whatsapp_settings.php?action=get', {
+      method: 'GET',
+    });
+  },
+
+  save: async (data: any) => {
+    const response = await apiRequest<{ message?: string; error?: string }>('whatsapp_settings.php?action=save', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
+    return { message: response.message || 'Configurações salvas com sucesso' };
+  },
+
+  test: async (data: any) => {
+    const response = await apiRequest<{ message?: string; error?: string }>('whatsapp_settings.php?action=test', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
+    return { message: response.message || 'Mensagem de teste enviada com sucesso' };
+  },
+};
+
+/**
+ * Credit Cards
  */
 export const creditCardsApi = {
   list: async (isActive?: boolean, memberId?: string) => {

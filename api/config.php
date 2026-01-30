@@ -77,7 +77,21 @@ $db_host = $env['DB_HOST'] ?? 'localhost';
 $db_user = $env['DB_USER'] ?? 'root';
 $db_password = $env['DB_PASS'] ?? $env['DB_PASSWORD'] ?? '';
 $db_name = $env['DB_NAME'] ?? 'family_finance';
+
+// WhatsApp SSL (para desenvolvimento - ignorar verificação SSL)
+if (!defined('WHATSAPP_IGNORE_SSL')) {
+    define('WHATSAPP_IGNORE_SSL', ($env['WHATSAPP_IGNORE_SSL'] ?? 'false') === 'true');
+}
+
+// Configurar timezone
+$app_timezone = $env['APP_TIMEZONE'] ?? 'America/Sao_Paulo';
+date_default_timezone_set($app_timezone);
+
 $db_port = $env['DB_PORT'] ?? 3306;
+
+// Configurar timezone
+$app_timezone = $env['APP_TIMEZONE'] ?? 'America/Sao_Paulo';
+date_default_timezone_set($app_timezone);
 
 // Chave de criptografia para senhas SMTP (usar variável de ambiente em produção)
 $encryption_key = $env['ENCRYPTION_KEY'] ?? 'default_key_change_in_production_' . md5(__DIR__);
@@ -508,5 +522,138 @@ function send_invitation_email($pdo, $family_id, $to, $full_name, $token, $passw
     }
     
     return $result;
+}
+
+/**
+ * Enviar convite via WhatsApp
+ * @param PDO $pdo Conexão com o banco
+ * @param string $family_id ID da família
+ * @param string $whatsapp_number Número WhatsApp (apenas dígitos, com DDI)
+ * @param string|null $full_name Nome completo do destinatário
+ * @param string $token Token do convite
+ * @param string|null $password Senha gerada (se cadastro completo)
+ * @param string $invitation_type Tipo: 'pre_register' ou 'full_register'
+ * @return array ['success' => bool, 'message' => string]
+ */
+function send_invitation_whatsapp($pdo, $family_id, $whatsapp_number, $full_name, $token, $password = null, $invitation_type = 'pre_register') {
+    require_once __DIR__ . '/helpers/SendWhatsAppService.php';
+    
+    error_log("Tentando enviar WhatsApp de convite para: $whatsapp_number (Família: $family_id, Tipo: $invitation_type)");
+    
+    // URL base (ajustar conforme necessário)
+    $base_url = $_SERVER['HTTP_ORIGIN'] ?? 'http://localhost';
+    $basename = '/family_finance';
+    $accept_url = $base_url . $basename . '/accept-invitation?token=' . urlencode($token);
+    
+    // Criar mensagem WhatsApp
+    if ($invitation_type === 'full_register') {
+        // Mensagem para cadastro completo (com credenciais)
+        $message = "🎉 *Bem-vindo ao FinFamily!*\n\n";
+        $message .= "Olá, " . ($full_name ?: 'novo membro') . "!\n\n";
+        $message .= "Você foi convidado para fazer parte de uma família no FinFamily.\n\n";
+        $message .= "📧 *Suas credenciais de acesso:*\n";
+        $message .= "E-mail: " . ($full_name ? 'será informado no e-mail' : 'será criado ao aceitar') . "\n";
+        $message .= "Senha: *" . $password . "*\n\n";
+        $message .= "⚠️ *Importante:* Guarde esta senha com segurança. Recomendamos alterá-la após o primeiro acesso.\n\n";
+        $message .= "✨ Para aceitar o convite e ativar sua conta, acesse:\n";
+        $message .= $accept_url . "\n\n";
+        $message .= "Após aceitar, você poderá fazer login com suas credenciais.\n\n";
+        $message .= "⏰ Este convite expira em 7 dias.";
+    } else {
+        // Mensagem para pré-cadastro (apenas link)
+        $message = "👋 *Convite para FinFamily*\n\n";
+        $message .= "Olá, " . ($full_name ?: 'novo membro') . "!\n\n";
+        $message .= "Você foi convidado para fazer parte de uma família no FinFamily.\n\n";
+        $message .= "✨ Para aceitar o convite e criar sua conta, acesse:\n";
+        $message .= $accept_url . "\n\n";
+        $message .= "⏰ Este link expira em 7 dias.";
+    }
+    
+    // Usar SendWhatsAppService
+    $result = SendWhatsAppService::sendMessage($pdo, $family_id, $whatsapp_number, $message);
+    
+    // Adaptar retorno para compatibilidade
+    if ($result['success']) {
+        return [
+            'success' => true,
+            'message' => 'Mensagem WhatsApp enviada com sucesso'
+        ];
+    } else {
+        return [
+            'success' => false,
+            'message' => $result['error'] ?: 'Erro ao enviar mensagem WhatsApp'
+        ];
+    }
+}
+
+/**
+ * Buscar configurações de WhatsApp da família
+ * @param PDO $pdo Conexão com o banco
+ * @param string $family_id ID da família
+ * @return array|null Configurações ou null se não encontrado
+ */
+function get_whatsapp_settings($pdo, $family_id) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT provider, api_url, api_key, api_token, instance_name,
+                   whatsapp_number, webhook_url, is_active
+            FROM whatsapp_settings
+            WHERE family_id = ? AND is_active = 1
+            LIMIT 1
+        ");
+        $stmt->execute([$family_id]);
+        $settings = $stmt->fetch();
+        
+        if (!$settings) {
+            return null;
+        }
+        
+        // Descriptografar API Key e Token
+        global $encryption_key, $encryption_method;
+        
+        // Descriptografar API Key
+        $encrypted_data = base64_decode($settings['api_key']);
+        $iv_length = openssl_cipher_iv_length($encryption_method);
+        if (strlen($encrypted_data) > $iv_length) {
+            $iv = substr($encrypted_data, 0, $iv_length);
+            $encrypted = substr($encrypted_data, $iv_length);
+            $decrypted_key = openssl_decrypt($encrypted, $encryption_method, $encryption_key, 0, $iv);
+            if ($decrypted_key === false) {
+                $decrypted_key = base64_decode($settings['api_key']);
+            }
+        } else {
+            $decrypted_key = base64_decode($settings['api_key']);
+        }
+        
+        // Descriptografar API Token (se existir)
+        $decrypted_token = null;
+        if ($settings['api_token']) {
+            $encrypted_token_data = base64_decode($settings['api_token']);
+            if (strlen($encrypted_token_data) > $iv_length) {
+                $iv = substr($encrypted_token_data, 0, $iv_length);
+                $encrypted = substr($encrypted_token_data, $iv_length);
+                $decrypted_token = openssl_decrypt($encrypted, $encryption_method, $encryption_key, 0, $iv);
+                if ($decrypted_token === false) {
+                    $decrypted_token = base64_decode($settings['api_token']);
+                }
+            } else {
+                $decrypted_token = base64_decode($settings['api_token']);
+            }
+        }
+        
+        return [
+            'provider' => $settings['provider'],
+            'api_url' => $settings['api_url'],
+            'api_key' => $decrypted_key,
+            'api_token' => $decrypted_token,
+            'instance_name' => $settings['instance_name'],
+            'whatsapp_number' => $settings['whatsapp_number'],
+            'webhook_url' => $settings['webhook_url'],
+            'is_active' => (bool)$settings['is_active'],
+        ];
+    } catch (PDOException $e) {
+        error_log("Erro ao buscar configurações de WhatsApp: " . $e->getMessage());
+        return null;
+    }
 }
 

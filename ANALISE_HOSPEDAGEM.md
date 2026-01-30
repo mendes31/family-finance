@@ -344,5 +344,31 @@ chmod 777 public_html/uploads/  # Permissão de escrita
 
 ---
 
+## 🤖 Automações WhatsApp (Futuro)
+
+Se você planeja implementar automações com WhatsApp (envio de imagens, áudio, perguntas), você precisará de:
+
+### ⚠️ **IMPORTANTE:** VPS Obrigatório
+
+**NÃO use hospedagem compartilhada** para automações WhatsApp, pois:
+- ❌ Não permite instalar Python/Node.js
+- ❌ Limitações de CPU/RAM para OCR/STT
+- ❌ Sem acesso SSH completo
+- ❌ Não suporta processamento assíncrono
+
+### Recomendação para Automações:
+
+1. **VPS DigitalOcean** (4-8GB RAM) - R$ 40-100/mês
+2. **Evolution API** (WhatsApp) - Gratuito
+3. **Google Vision API** (OCR) - R$ 0-50/mês
+4. **Google Speech-to-Text** (Áudio) - R$ 0-100/mês
+5. **OpenAI GPT** (NLP) - R$ 10-100/mês
+
+**Total estimado:** R$ 50-350/mês
+
+📖 **Veja o guia completo:** `GUIA_AUTOMACOES_WHATSAPP.md`
+
+---
+
 **Última atualização:** Janeiro 2025
 
